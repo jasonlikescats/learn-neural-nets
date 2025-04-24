@@ -1,0 +1,244 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/jasonlikescats/learn-neural-nets/blob/colab/Normalize%20counts\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 4,
+      "id": "af05478e-92e5-49a0-9e9d-389327f1d4a3",
+      "metadata": {
+        "id": "af05478e-92e5-49a0-9e9d-389327f1d4a3"
+      },
+      "outputs": [],
+      "source": [
+        "from graphviz import Digraph\n",
+        "import random\n",
+        "import numpy as np\n",
+        "import torch\n",
+        "import matplotlib.pyplot as plt\n",
+        "import string\n",
+        "%matplotlib inline"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 5,
+      "id": "75d11b33",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "75d11b33",
+        "outputId": "b7964bec-0976-432d-daf3-9e2fa635db61"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "['emma', 'olivia', 'ava', 'isabella', 'sophia', 'charlotte', 'mia', 'amelia', 'harper', 'evelyn', 'abigail', 'emily', 'elizabeth', 'mila', 'ella', 'avery', 'sofia', 'camila', 'aria', 'scarlett']\n"
+          ]
+        }
+      ],
+      "source": [
+        "# read names.txt\n",
+        "with open('names.txt') as f:\n",
+        "    names = f.read().splitlines()\n",
+        "\n",
+        "print(names[:20])"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 24,
+      "id": "8152f10f",
+      "metadata": {
+        "id": "8152f10f"
+      },
+      "outputs": [],
+      "source": [
+        "class NGramModel:\n",
+        "    def __init__(self, n):\n",
+        "        self.n = n\n",
+        "        self.vocab = [\".\"] + list(string.ascii_lowercase) # '.' is start/end token\n",
+        "        self.counts = torch.zeros((len(self.vocab),) * n, dtype=torch.int32)\n",
+        "\n",
+        "    def train(self, words):\n",
+        "        for w in words:\n",
+        "            encoded = self._encode(w)\n",
+        "            # iterate through n-grams\n",
+        "            for i in range(0, len(encoded) - self.n + 1):\n",
+        "                ngram = encoded[i:i + self.n]\n",
+        "                self.counts[tuple(ngram)] += 1\n",
+        "\n",
+        "        self._normalize()\n",
+        "\n",
+        "    def predict(self):\n",
+        "        # start with n-1 start tokens\n",
+        "        prefix = [0] * (self.n - 1)\n",
+        "\n",
+        "        # generate a word\n",
+        "        word = []\n",
+        "        while True:\n",
+        "            # get the next token\n",
+        "            token = torch.multinomial(self.counts[tuple(prefix)], 1).item()\n",
+        "            word.append(token)\n",
+        "            prefix = prefix[1:] + [token]\n",
+        "            if token == 0:\n",
+        "                break\n",
+        "        return self._decode(word)\n",
+        "\n",
+        "    def _encode(self, word):\n",
+        "        # pad the word with n-1 start tokens, and a trailing end token\n",
+        "        padded_word = \".\" * (self.n - 1) + word + \".\"\n",
+        "        encoded = [self.vocab.index(c) for c in padded_word]\n",
+        "        return encoded\n",
+        "\n",
+        "    def _decode(self, encoded):\n",
+        "        return \"\".join([self.vocab[i] for i in encoded])\n",
+        "\n",
+        "    def _normalize(self):\n",
+        "        self.counts = self.counts / self.counts.sum(dim=-1, keepdim=True)\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 25,
+      "id": "6c88e28d",
+      "metadata": {
+        "id": "6c88e28d"
+      },
+      "outputs": [],
+      "source": [
+        "bigram = NGramModel(2)\n",
+        "bigram.train(names)\n",
+        "\n",
+        "trigram = NGramModel(3)\n",
+        "trigram.train(names)\n",
+        "\n",
+        "quadgram = NGramModel(4)\n",
+        "quadgram.train(names)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 27,
+      "id": "8c1755e0",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "8c1755e0",
+        "outputId": "5e340cce-46e1-40d9-ac91-e15af88a2ca9"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "BIGRAM\n",
+            "ya.\n",
+            "syahavilin.\n",
+            "dleekahmangonya.\n",
+            "tryahe.\n",
+            "chen.\n",
+            "ena.\n",
+            "da.\n",
+            "amiiae.\n",
+            "a.\n",
+            "keles.\n",
+            "\n",
+            "TRIGRAM\n",
+            "lo.\n",
+            "atophasiani.\n",
+            "pepolannezelloriahlam.\n",
+            "xanna.\n",
+            "lun.\n",
+            "camarivie.\n",
+            "auguth.\n",
+            "shirahmolm.\n",
+            "ei.\n",
+            "tony.\n",
+            "\n",
+            "QUADGRAM\n",
+            "rin.\n",
+            "chrishan.\n",
+            "ana.\n",
+            "baylianna.\n",
+            "skaan.\n",
+            "hadysyn.\n",
+            "nia.\n",
+            "rilanaelee.\n",
+            "oakley.\n",
+            "clara.\n",
+            "auniselynn.\n",
+            "arae.\n",
+            "karrence.\n",
+            "lyrielestlee.\n",
+            "connea.\n",
+            "rick.\n",
+            "madee.\n",
+            "aler.\n",
+            "sofiya.\n",
+            "jana.\n",
+            "kaliah.\n",
+            "roziah.\n",
+            "marly.\n",
+            "kelynn.\n",
+            "sulea.\n"
+          ]
+        }
+      ],
+      "source": [
+        "torch.manual_seed(42)\n",
+        "\n",
+        "print(\"BIGRAM\")\n",
+        "for i in range(10):\n",
+        "    print(bigram.predict())\n",
+        "\n",
+        "print()\n",
+        "print(\"TRIGRAM\")\n",
+        "for i in range(10):\n",
+        "    print(trigram.predict())\n",
+        "\n",
+        "print()\n",
+        "print(\"QUADGRAM\")\n",
+        "for i in range(25):\n",
+        "    print(quadgram.predict())\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [],
+      "metadata": {
+        "id": "HE95s6hy4CnN"
+      },
+      "id": "HE95s6hy4CnN",
+      "execution_count": null,
+      "outputs": []
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python"
+    },
+    "colab": {
+      "provenance": [],
+      "include_colab_link": true
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}
